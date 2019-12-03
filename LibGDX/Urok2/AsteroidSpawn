@@ -28,10 +28,19 @@ public class AsteroidSpawn {
         spawnTimer += dt;
         if (spawnTimer > 1.0f) {
             spawnTimer = 0.0f;
+            
+            // Астероиды вылетают из-за правого края экрана 
             position.x = MathUtils.random(ScreenManager.SCREEN_WIDTH + 200, ScreenManager.SCREEN_WIDTH + 300);
             position.y = MathUtils.random(50, ScreenManager.SCREEN_HEIGTH - 50);
+            
+            // Летят под рандомными углами в диапазоне 140 - 220
             azimuth = MathUtils.random(140.0f, 220.0f);
+            
+            // Астероиды имеют разный размер 0.3 - 1 от текстуры
             scale = MathUtils.random(0.3f, 1.0f);
+            
+            // Скорсть вращения зависит от размера
+            // Скрость тоже зависит от размера - baseSpeed умножается на коэффициент (2 - scale)
             rotation = 1 / scale;
             gc.getAsteroidController().setup(position.x, position.y, (float) Math.cos(Math.toRadians(azimuth)) * (baseSpeed * (2 - scale)) + velocity.x,
                     (float) Math.sin(Math.toRadians(azimuth)) * (baseSpeed * (2 - scale)) + velocity.y, 0.0f, scale, rotation);
