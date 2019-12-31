@@ -1,0 +1,420 @@
+// 2. Кнопка паузы и выхода в меню на игровом экране
+
+*** Кнопка паузы - в GameScreen, текст на кнопке менятся Pause <> Resume  в зависимости от
+*** от текущего статуса
+
+        final TextButton buttonPause = new TextButton("Pause", textButtonStyle);
+        buttonPause.setPosition(1100, 660);
+
+        buttonPause.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                    if (!isPaused) {
+                        buttonPause.setText("Resume");
+                        isPaused = true;
+                    }
+                    else {
+                        buttonPause.setText("Pause");
+                        isPaused = false;
+                    }
+            }
+            });
+
+
+        stage.addActor(buttonPause);
+
+*** Собственно пауза реализована в GameController - стоп апдейта, если isPaused = true в GameScreen
+
+    public void update(float dt) {
+        if (!ScreenManager.getInstance().getGameScreen().getIsPaused()) {
+            background.update(dt);
+            hero.update(dt);
+            bulletController.update(dt);
+            asteroidSpawn.update(dt);
+            asteroidController.update(dt);
+            particleController.update(dt);
+            powerUpsController.update(dt);
+            checkCollisions();
+        }
+    }
+
+*** Кнопка возврата в меню - в GameScreen
+
+        final TextButton buttonToMenu = new TextButton("To Menu", textButtonStyle);
+        buttonToMenu.setPosition(1100, 610);
+
+        buttonToMenu.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                isMenuPressed = true;
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.MENU);
+            }
+        });
+
+*** В основном меню кнопка "Back to game", она появляется, когда нажата "To menu" в GameScreen
+
+
+        Button btnBackToGame = new TextButton("Back to game", textButtonStyle);
+
+        btnBackToGame.setPosition(955, 60);
+
+        btnBackToGame.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.GAME);
+            }
+        });
+
+        if (ScreenManager.getInstance().getGameScreen().getIsMenuPressed()) {
+            stage.addActor(btnBackToGame);
+        }
+
+// 3. Сделайте Game Over Screen
+
+*** Создал новый экран и добаил его в assets и ScreenManager
+
+public class GameOver extends AbstractScreen {
+    private Background background;
+    private BitmapFont font72;
+    private BitmapFont font32;
+    private Stage stage;
+    private int finalScore;
+
+    public GameOver(SpriteBatch batch) {
+        super(batch);
+        this.finalScore = 0;
+    }
+
+    public void setFinalScore (int score) {
+        this.finalScore = score;
+    }
+
+    @Override
+    public void show() {
+        this.background = new Background(null);
+        this.stage = new Stage(ScreenManager.getInstance().getViewport(), batch);
+        this.font72 = Assets.getInstance().getAssetManager().get("fonts/font72.ttf");
+        this.font32 = Assets.getInstance().getAssetManager().get("fonts/font32.ttf");
+
+        Gdx.input.setInputProcessor(stage);
+
+        Skin skin = new Skin();
+        skin.addRegions(Assets.getInstance().getAtlas());
+
+        skin.dispose();
+    }
+
+
+*** Обработка нажатия кнопок мыши для выхода в осн меню
+
+        public void update ( float dt){
+            background.update(dt);
+            stage.act(dt);
+            if (Gdx.input.isButtonPressed(Input.Buttons.LEFT) || Gdx.input.isButtonPressed(Input.Buttons.RIGHT) || Gdx.input.isButtonPressed(Input.Buttons.MIDDLE)) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.MENU);
+            }
+        }
+
+        @Override
+        public void render (float delta){
+            update(delta);
+            Gdx.gl.glClearColor(0, 0, 0, 1);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+            batch.begin();
+            background.render(batch);
+            font72.draw(batch, "GAME OVER", 0, 400, 1280, 1, false);
+            font32.draw(batch, "FINAL SCORE: " + finalScore, 0, 300, 1280, 1, false);
+            batch.end();
+            stage.draw();
+        }
+
+        @Override
+        public void dispose () {
+            background.dispose();
+        }
+    }
+
+*** Выход в GameOver из update Hero
+
+    public void update (float dt) {
+        if (hp <= 0) {
+            ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.GAMEOVER);
+            ScreenManager.getInstance().getGameOver().setFinalScore(score);
+        }
+
+*** Из Hero передаем в GameOver значение score, в сеттер для вывода на экран в GameOver
+
+    public void setFinalScore (int score) {
+        this.finalScore = score;
+    }
+
+*** Также добавил моргание корабля при hp <10, сигнал, что игра скоро закончится в Hero
+
+    public void render (SpriteBatch batch) {
+        if (hp < 10) {
+            if (blinkTimer < 2.0f) {
+                batch.draw(texture, position.x - 32, position.y - 32, 32, 32, 64, 64, 1, 1, angle);
+            } else if (blinkTimer > 2.5) blinkTimer = 0;
+        } else {
+            batch.draw(texture, position.x - 32, position.y - 32, 32, 32, 64, 64, 1, 1, angle);
+        }
+    }
+
+// 4. * Настройки со сменой управления
+
+*** Я реализовал это в отдельном экране
+*** В MenuScreen - кнопка Settings
+
+        Button btnSettings = new TextButton("Settings", textButtonStyle);
+
+        btnSettings.setPosition(480, 60);
+
+        btnSettings.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.SETTINGS);
+            }
+        });
+
+        stage.addActor(btnSettings);
+
+*** Экран Settings, 3 кнопки OK, DEFAULT, EXIT
+
+    @Override
+    public void show() {
+        this.background = new Background(null);
+        this.stage = new Stage(ScreenManager.getInstance().getViewport(), batch);
+        this.font72 = Assets.getInstance().getAssetManager().get("fonts/font72.ttf");
+        this.font32 = Assets.getInstance().getAssetManager().get("fonts/font32.ttf");
+        this.font24 = Assets.getInstance().getAssetManager().get("fonts/font24.ttf");
+        this.defaultPressed = false;
+
+        final Properties controlKeys = loadProperties();
+
+        Gdx.input.setInputProcessor(stage);
+
+        Skin skin = new Skin();
+        skin.addRegions(Assets.getInstance().getAtlas());
+
+*** 5 текстовых полей для ввода значений FWD, BWD, LEFT, RIGHT, FIRE
+*** Значения в них берутся из текущих options.properties
+
+        TextField.TextFieldStyle styleField1 = new TextField.TextFieldStyle();
+        styleField1.font = font32;
+        styleField1.fontColor = Color.WHITE;
+
+        final TextField field1 = new TextField(Input.Keys.toString(Integer.parseInt((String)controlKeys.get("FWD"))), styleField1 );
+        field1.setPosition(400, 520);
+
+        TextField.TextFieldStyle styleField2 = new TextField.TextFieldStyle();
+        styleField2.font = font32;
+        styleField2.fontColor = Color.WHITE;
+
+        final TextField field2 = new TextField(Input.Keys.toString(Integer.parseInt((String)controlKeys.get("BWD"))), styleField1 );
+        field2.setPosition(400, 420);
+
+        TextField.TextFieldStyle styleField3 = new TextField.TextFieldStyle();
+        styleField3.font = font32;
+        styleField3.fontColor = Color.WHITE;
+
+        final TextField field3 = new TextField(Input.Keys.toString(Integer.parseInt((String)controlKeys.get("RIGHT"))), styleField1 );
+        field3.setPosition(400, 320);
+
+        TextField.TextFieldStyle styleField4 = new TextField.TextFieldStyle();
+        styleField4.font = font32;
+        styleField4.fontColor = Color.WHITE;
+
+        final TextField field4 = new TextField(Input.Keys.toString(Integer.parseInt((String)controlKeys.get("LEFT"))), styleField1 );
+        field4.setPosition(400, 220);
+
+        TextField.TextFieldStyle styleField5 = new TextField.TextFieldStyle();
+        styleField5.font = font32;
+        styleField5.fontColor = Color.WHITE;
+
+        final TextField field5 = new TextField(Input.Keys.toString(Integer.parseInt((String)controlKeys.get("FIRE"))), styleField1 );
+        field5.setPosition(400, 120);
+
+*** Значения управления апдейтятся в полях экрана и заносятся в рабочий properties hash
+
+        field1.setTextFieldListener(new TextField.TextFieldListener() {
+            @Override
+            public void keyTyped(TextField textField, char key) {
+                controlKeys.put("FWD", String.valueOf(Input.Keys.valueOf(String.valueOf(key))));
+            }
+        });
+
+        field2.setTextFieldListener(new TextField.TextFieldListener() {
+            @Override
+            public void keyTyped(TextField textField, char key) {
+                controlKeys.put("BWD", String.valueOf(Input.Keys.valueOf(String.valueOf(key))));
+            }
+        });
+
+        field3.setTextFieldListener(new TextField.TextFieldListener() {
+            @Override
+            public void keyTyped(TextField textField, char key) {
+                controlKeys.put("RIGHT", String.valueOf(Input.Keys.valueOf(String.valueOf(key))));
+            }
+        });
+
+        field4.setTextFieldListener(new TextField.TextFieldListener() {
+            @Override
+            public void keyTyped(TextField textField, char key) {
+                controlKeys.put("LEFT", String.valueOf(Input.Keys.valueOf(String.valueOf(key))));
+            }
+        });
+
+        field5.setTextFieldListener(new TextField.TextFieldListener() {
+            @Override
+            public void keyTyped(TextField textField, char key) {
+                controlKeys.put("FIRE", String.valueOf(Input.Keys.valueOf(String.valueOf(key))));
+            }
+        });
+
+        TextButton.TextButtonStyle btnOKStyle = new TextButton.TextButtonStyle();
+        btnOKStyle.up = skin.getDrawable("simpleButtonSmall");
+        btnOKStyle.font = font24;
+        skin.add("simpleSkin", btnOKStyle);
+
+        final TextButton buttonOK = new TextButton("OK", btnOKStyle);
+        final TextButton buttonEXIT = new TextButton("EXIT", btnOKStyle);
+        final TextButton buttonDEFAULT = new TextButton("DEFAULT", btnOKStyle);
+        buttonOK.setPosition(720, 50);
+        buttonDEFAULT.setPosition(910, 50);
+        buttonEXIT.setPosition(1100, 50);
+
+*** Кнопка EXIT - возврат в основное меню без сохранения
+
+        buttonEXIT.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.MENU);
+            }
+        });
+
+*** Кнопка ОК - записать новые значения кнопок через метод OptionsUtils - OptionsUtils.updateDefaultProperties(controlKeys)
+*** Если была нажата кнопка Default - перезаписать все изменения созданием дефолтного в OptionsUtils - OptionsUtils.createDefaultProperties();
+
+        buttonOK.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if(defaultPressed) {OptionsUtils.createDefaultProperties();}
+                else OptionsUtils.updateDefaultProperties(controlKeys);
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.MENU);
+            }
+        });
+
+*** Кнопка DEFAULT - скинуть значения всех текстовых полей в дефолтные, вызвав OptionsUtils.createDefaultProperties() и 
+*** записать дефолтные в текстовые поля
+
+        buttonDEFAULT.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                OptionsUtils.createDefaultProperties();
+                defaultPressed = true;
+                field1.setText(Input.Keys.toString(Integer.parseInt((String)loadProperties().get("FWD"))));
+                field2.setText(Input.Keys.toString(Integer.parseInt((String)loadProperties().get("BWD"))));
+                field3.setText(Input.Keys.toString(Integer.parseInt((String)loadProperties().get("RIGHT"))));
+                field4.setText(Input.Keys.toString(Integer.parseInt((String)loadProperties().get("LEFT"))));
+                field5.setText(Input.Keys.toString(Integer.parseInt((String)loadProperties().get("FIRE"))));
+            }
+        });
+
+        stage.addActor(field1);
+        stage.addActor(field2);
+        stage.addActor(field3);
+        stage.addActor(field4);
+        stage.addActor(field5);
+        stage.addActor(buttonOK);
+        stage.addActor(buttonEXIT);
+        stage.addActor(buttonDEFAULT);
+        skin.dispose();
+    }
+
+    public static Properties loadProperties() {
+        try {
+            Properties properties = new Properties();
+            properties.load(Gdx.files.local("options.properties").read());
+            return properties;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        throw new RuntimeException("Unable to read options.prooperties");
+    }
+
+        public void update ( float dt){
+            background.update(dt);
+            stage.act(dt);
+        }
+
+        @Override
+        public void render ( float delta){
+            update(delta);
+            Gdx.gl.glClearColor(0, 0, 0, 1);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+            batch.begin();
+            background.render(batch);
+            font72.draw(batch, "CHANGE CONTROLS ", 100, 650,  1280, -1, false);
+            font32.draw(batch, "MOVE FWD ", 100, 550, 0, 9, 1280, -1, false);
+            font32.draw(batch, "MOVE BWD ", 100, 450, 0, 9, 1280, -1, false);
+            font32.draw(batch, "TURN RIGHT ", 100, 350, 0, 10, 1280, -1, false);
+            font32.draw(batch, "TURN LEFT ", 100, 250, 0, 9, 1280, -1, false);
+            font32.draw(batch, "FIRE ", 100, 150, 0, 5, 1280, -1, false);
+            batch.end();
+            stage.draw();
+        }
+
+        @Override
+        public void dispose () {
+            background.dispose();
+        }
+    }
+
+*** В OptionsUtils изменил немного дефолтный и создал новый апдейт
+
+    public static Properties setPropertiesDef() {
+        controlKeysDef.put("FIRE", String.valueOf(Input.Keys.P));
+        controlKeysDef.put("FWD", String.valueOf(Input.Keys.W));
+        controlKeysDef.put("LEFT", String.valueOf(Input.Keys.A));
+        controlKeysDef.put("RIGHT", String.valueOf(Input.Keys.D));
+        controlKeysDef.put("BWD", String.valueOf(Input.Keys.S));
+        return controlKeysDef;
+    }
+
+    public static void createDefaultProperties () {
+        try {
+            setPropertiesDef().store(Gdx.files.local("options.properties").write(false), null);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void updateDefaultProperties (Properties updateProperties) {
+        try {
+            updateProperties.store(Gdx.files.local("options.properties").write(false), null);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+*** Также пришлось немного поправить KeysControl
+
+    public KeysControl(Properties properties, String prefix) {
+        fire = Integer.parseInt(properties.getProperty("FIRE"));
+        forward = Integer.parseInt(properties.getProperty("FWD"));
+        backward = Integer.parseInt(properties.getProperty("BWD"));
+        left = Integer.parseInt(properties.getProperty("LEFT"));
+        right = Integer.parseInt(properties.getProperty("RIGHT"));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
