@@ -1,0 +1,174 @@
+// 2. Сделать так, чтобы при приближении к power-ups они начинали лететь в сторону игрока
+
+// Реализвал в GameController. Общая идея создать три hit area в PowerUp
+// разного диаметра - собственно "рабочая" hitarea + две зоны в 2 и 4 размера текстуры
+
+    private Circle hitArea;
+    private Circle hitAreaBig;
+    private Circle hitAreaMid;
+
+    public Circle getHitArea() { return hitArea; }
+    public Circle getHitAreaBig() { return hitAreaBig; }
+    public Circle getHitAreaMid() { return hitAreaMid; }
+
+    public PowerUp(GameController gc) {
+        this.hitArea = new Circle(0, 0, 0);
+        this.hitAreaBig = new Circle(0, 0, 0);
+        this.hitAreaMid = new Circle(0, 0, 0);
+
+
+    public void activate(int i, float x, float y, float vx, float vy, float rotation, float powerUpProbo) {
+        this.hitArea.setPosition(position);
+        this.hitArea.setRadius(Type.values()[i].getBaseSize()/2);
+        this.hitAreaBig.setPosition(position);
+        this.hitAreaBig.setRadius(Type.values()[i].getBaseSize()*4);
+        this.hitAreaMid.setPosition(position);
+        this.hitAreaMid.setRadius(Type.values()[i].getBaseSize()*2);
+
+// При влете корабля в каждую из больших зон происходит корретировка курса powerup в сторону корабля
+// при сближении с "рабочей" - поглощение. powerup летит в сторону корабля по нормированному вектору с
+// постоянноым скаляром, остановился на скаляре, если брать скорость корабля или powerup получалось очень быстрое сближение
+// закоменченны варианты поиска оптимальной скорости сближения
+// Это кусок из gc
+
+
+        for (int i = 0; i < powerUpsController.getActiveList().size(); i++) {
+            PowerUp powerUp = powerUpsController.getActiveList().get(i);
+            if(powerUp.getHitAreaBig().overlaps(hero.getHitArea())) {
+                tmpVec1.set(hero.getPosition()).sub(powerUp.getPosition()).nor();
+                powerUp.getVelocity().mulAdd(tmpVec1, 4);
+////                powerUp.getVelocity().mulAdd(tmpVec1, Math.abs(hero.getVelocity().x) / 20);
+                if (powerUp.getHitAreaMid().overlaps(hero.getHitArea())) {
+                    tmpVec1.set(hero.getPosition()).sub(powerUp.getPosition()).nor();
+                    powerUp.getVelocity().mulAdd(tmpVec1, 5);
+////                powerUp.getVelocity().mulAdd(tmpVec1, Math.abs(hero.getVelocity().x) / 40);
+////                powerUp.getVelocity().mulAdd(tmpVec1, Math.abs(powerUp.getVelocity().x) / 20);
+                    if (powerUp.getHitArea().overlaps(hero.getHitArea())) {
+                        hero.powerUp(powerUp);
+                        particleController.getEffectBuilder().takePowerUpEffect(powerUp.getPosition().x, powerUp.getPosition().y, powerUp.getType().index);
+                        powerUp.deactivate();
+                    }
+                }
+            }
+        }
+
+// 3. При уничтожении всех астероидов уровень игры повышается, появляются новые астероиды,
+// у которых побольше жизни, и которые бьют игрока больнее
+
+// Создал отдельный класс LevelController
+// Переходим на сл. уровень, если все астероиды уничтожены, я выбрал asteroidController.getActiveList().size() == 0,
+// как признак уничтожения всех астероидов
+// Есть два варианта окончания игры - по времени и нулевому здлровью
+// С каждым уровенем повышается здоровье астероидов, их урон кораблю и уменьшается время уровня 
+
+public class LevelController {
+
+    private GameController gc;
+    private Boolean levelIsComplete;
+    private int levelCount;
+    private Boolean startNewLevel;
+    private AsteroidController asteroidController;
+    private int asteroidMax;
+    private int hpCoeff;
+    private float damageCoeff;
+    private long startLevel;
+    private float levelTime;
+    private float levelTimeInit;
+    private boolean levelFail;
+    private boolean levelComplete;
+    private String failMessage;
+
+    public LevelController(GameController gc) {
+        this.gc = gc;
+        this.levelIsComplete = false;
+        this.startNewLevel = true;
+        this.asteroidController = gc.getAsteroidController();
+        this.asteroidMax = 3;
+        this.hpCoeff = 10;
+        this.levelTimeInit = 106.0f;
+        this.levelFail = false;
+        this.levelComplete = false;
+        this.levelCount = 0;
+        this.damageCoeff = 1.0f;
+    }
+
+    public int getLevelCount() { return levelCount; }
+
+    public float getLevelTime() { return Math.round(levelTime * 10) / 10; }
+
+    public float getDamageCoeff() {return damageCoeff;}
+
+    public void update(float dt) {
+            if (gc.getHero().getHp() > 0 & startNewLevel) {
+                startLevel = System.currentTimeMillis();
+                // Здоровье героя на 100 с каждым уровнем
+                gc.getHero().setHp(100.0f);
+                for (int i = 0; i < asteroidMax; i++) {
+                    this.asteroidController.setup(MathUtils.random(0, ScreenManager.SCREEN_WIDTH), MathUtils.random(0, ScreenManager.SCREEN_HEIGHT),
+                            MathUtils.random(-150.0f, 150.0f), MathUtils.random(-150.0f, 150.0f), 1.0f, hpCoeff, damageCoeff);
+                }
+                startNewLevel = false;
+                hpCoeff += 5;
+                asteroidMax += 1;
+                levelTimeInit -= 5.0f;
+                levelTime = levelTimeInit;
+                levelCount += 1;
+                damageCoeff += 0.1f;
+            }
+
+            levelTime = levelTime - dt;
+
+            if (((System.currentTimeMillis() - startLevel) / 1000.0f) > levelTimeInit) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.GAMEOVER);
+                this.failMessage = "TIME IS UP";
+                ScreenManager.getInstance().getGameOver().setFinalScore(gc.getHero().getScore(), failMessage);
+            }
+
+            if (gc.getHero().getHp() <= 0) {
+                ScreenManager.getInstance().changeScreen(ScreenManager.ScreenType.GAMEOVER);
+                failMessage = "SHIP IS LOST";
+                ScreenManager.getInstance().getGameOver().setFinalScore(gc.getHero().getScore(), failMessage);
+            }
+            if (gc.getHero().getHp() > 0 & asteroidController.getActiveList().size() == 0) {
+                levelComplete = true;
+                startNewLevel = true;
+            }
+        }
+}
+
+// соотв кусок из GameOver экрана
+
+    public void setFinalScore (int score, String failMessage) {
+        this.finalScore = score;
+        this.failMessage = failMessage;
+    }
+
+        @Override
+        public void render (float delta){
+            update(delta);
+            Gdx.gl.glClearColor(0, 0, 0, 1);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+            batch.begin();
+            background.render(batch);
+            font72.draw(batch, "GAME OVER", 0, ScreenManager.HALF_SCREEN_HEIGHT, ScreenManager.SCREEN_WIDTH, Align.center, false);
+            if(failMessage != null) {font32.draw(batch, failMessage, 0, ScreenManager.HALF_SCREEN_HEIGHT - 100, ScreenManager.SCREEN_WIDTH, Align.center, false);}
+            font32.draw(batch, "FINAL SCORE: " + finalScore, 0, ScreenManager.HALF_SCREEN_HEIGHT - 180, ScreenManager.SCREEN_WIDTH, Align.center, false);
+            batch.end();
+            stage.draw();
+        }
+
+// В Hero отображаем текущий уровень и оставшееся время на экране
+
+    public void renderGui(SpriteBatch batch, BitmapFont font) {
+        if (hp<0) hp =0;
+        strBuilder.clear();
+        strBuilder.append("SCORE: ").append(scoreView).append("\n");
+        strBuilder.append("HP : ").append(Math.floor(hp * 100) / hpMax).append("\n");
+        strBuilder.append("BULLETS: ").append(currentWeapon.getCurrBullets()).append(" / ").append(currentWeapon.getMaxBullets()).append("\n");
+        strBuilder.append("COINS : ").append(coins).append("\n");
+        font.draw(batch, strBuilder, 20, ScreenManager.SCREEN_HEIGHT - 20);
+        strBuilder1.clear();
+        strBuilder1.append("LEVEL: ").append(gc.getLevelController().getLevelCount()).append(" ");
+        strBuilder1.append("TIME LEFT: ").append(Float.toString(gc.getLevelController().getLevelTime()).replaceAll("\\.0+$", ""));
+        font.draw(batch, strBuilder1, 20, 35);
+    }
