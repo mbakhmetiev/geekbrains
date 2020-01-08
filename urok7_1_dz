@@ -1,0 +1,46 @@
+// Бот на мникарте
+
+        batch.setColor(Color.RED);
+        for (int i = 0; i < gc.getEnemyController().getActiveList().size(); i++) {
+            Enemy e = gc.getEnemyController().getActiveList().get(i);
+            float dst = position.dst(e.getPosition());
+            if (dst < 3000.0f) {
+                tmpVector.set(e.getPosition()).sub(this.position);
+                tmpVector.scl(160.0f / 3000.0f);
+                batch.draw(starTexture, mapX + tmpVector.x - 16, mapY + tmpVector.y - 16, 32, 32);
+            }
+        }
+
+// Моргание красным корабля при уроне
+
+	    public void render (SpriteBatch batch) {
+        if (hp < 10 || gc.getLevelController().getLevelTime() < 10)  {
+            if (blinkTimer < 2.0f) {
+                batch.draw(texture, position.x - 32, position.y - 32, 32, 32, 64, 64, 1, 1, angle);
+            } else if (blinkTimer > 2.5) blinkTimer = 0;
+        } else {
+            batch.draw(texture, position.x - 32, position.y - 32, 32, 32, 64, 64, 1, 1, angle);
+        }
+        if(shipHit) {
+            if (redTimer < 2.0f) {
+                shipHit = false;
+                batch.draw(texture2, position.x - 32, position.y - 32, 32, 32, 64, 64, 1.2f, 1.2f, angle);
+            } else if (redTimer > 4.5) redTimer = 0;
+        } else {
+            batch.draw(texture, position.x - 32, position.y - 32, 32, 32, 64, 64, 1, 1, angle);
+
+        }
+    }
+
+// Из gc передаем shipHit = true  hero
+
+        // Бот стреляет в героя
+        for (int i = 0; i < bulletController.getActiveList().size(); i++) {
+            Bullet b = bulletController.getActiveList().get(i);
+                if(hero.getHitArea().overlaps(b.getHitArea()) & b.getBulletID() == "enemy") {
+                    hero.takeDamage(getLevelController().getEnemyDamageCoeff());
+                    hero.setShipHit();
+                    b.deactivate();
+                    }
+                break;
+        }
